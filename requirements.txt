@@ -1,0 +1,15 @@
+streamlit
+sentence-transformers
+faiss-cpu
+transformers
+llama-cpp-python
+PyPDF2
+scikit-learn
+numpy
+pandas
+matplotlib
+seaborn
+langchain
+langchain-community 
+ctransformers 
+openai
