@@ -8,6 +8,13 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
+import pymupdf  # PyMuPDF
+import docx2txt
+from pathlib import Path
+import re
+import pandas as pd
+import io
+import warnings
 
 # Streamlit UI
 st.set_page_config(page_title="RAGcruiter")
@@ -17,15 +24,23 @@ st.title("RAGcruiter 🚀 — Resume Evaluator with Gemini")
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+warnings.filterwarnings("ignore")
+
 #Extract Resume Text & Split into Chunks
 def extract_resume_chunks(uploaded_file):
     if uploaded_file is None or uploaded_file.size == 0:
         st.warning("Uploaded file is empty or not valid.")
         return []
 
-    file_path = os.path.join("temp_resume.pdf")
+    # Read file content into memory once
+    file_bytes = uploaded_file.read()
+    if not file_bytes:
+        st.warning("Uploaded file content is empty.")
+        return []
+
+    file_path = "temp_resume.pdf"
     with open(file_path, "wb") as f:
-        f.write(uploaded_file.read())
+        f.write(file_bytes)
 
     try:
         loader = PyPDFLoader(file_path)
@@ -37,6 +52,10 @@ def extract_resume_chunks(uploaded_file):
 
     os.remove(file_path)
 
+    if not documents:
+        st.warning("No valid content found in the uploaded file.")
+        return []
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
@@ -44,6 +63,7 @@ def extract_resume_chunks(uploaded_file):
     )
     chunks = text_splitter.split_documents(documents)
     return chunks
+
 
 def create_vector_store(chunks):
     embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -66,38 +86,99 @@ def get_gemini_response(prompt, retrieved_chunks, job_description):
     ])
     return response.text
 
+def extract_text(file_bytes, file_type):
+    if file_type == "application/pdf":
+        with pymupdf.open(stream=io.BytesIO(file_bytes), filetype="pdf") as doc:
+            return "\n".join([page.get_text() for page in doc])
+    elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        temp_file = io.BytesIO(file_bytes)
+        return docx2txt.process(temp_file)
+    elif file_type == "text/plain":
+        return file_bytes.decode("utf-8")
+    else:
+        return ""
+
+def extract_required_skills(job_description):
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    prompt = f"""Extract a list of key skills required for the following job description. Just list them as a comma-separated string.
+
+    Job Description:
+    {job_description}
+    """
+    response = model.generate_content(prompt)
+    return [skill.strip() for skill in response.text.split(",")]
+
+def extract_skills(text, dynamic_skills_list):
+    found = [skill for skill in dynamic_skills_list if re.search(rf'\\b{re.escape(skill)}\\b', text, re.IGNORECASE)]
+    return list(set(found))
+
+
+
 # Prompts
 prompt_analysis = """
-You are a Technical HR recruiter. Analyze the given resume against the job description.
-Highlight:
-1. Profile summary.
-2. Strengths.
-3. Weaknesses.
-4. Any missing important skills.
+You are a Technical HR Recruiter. Your task is to analyze the following resume against the provided job description and highlight the key aspects in a crisp and to-the-point manner.
+
+Your analysis should be structured into the following four sections:
+
+1.  **Profile Summary:** Provide a concise (1-2 sentences) summary of the candidate's core experience and key skills relevant to the job description.
+
+2.  **Strengths:** List key strengths of the candidate in bullet points, focusing on direct relevance to the job description's requirements and preferences. Use specific technologies, tools, and action verbs.
+
+3.  **Weaknesses:** Identify potential weaknesses or areas for development in bullet points. Frame these objectively and professionally, focusing on gaps compared to the job description.
+
+4.  **Missing Important Skills:** List critical skills explicitly mentioned in the job description that are not evident in the resume in bullet points. Be specific about the missing skills.
+
+Ensure your analysis is concise, apt, and directly related to the information provided in the job description and resume. Avoid unnecessary elaboration or subjective opinions.
 """
 
 prompt_match = """
-You are an ATS system. Based on the resume and job description provided:
-1. Return a matching percentage.
-2. List missing or unmatched keywords.
-3. Give brief final thoughts.
+You are an ATS (Applicant Tracking System). Analyze the following resume against the provided job description and provide a structured output.
+
+Your output should include the following three sections:
+
+1.  **Matching Percentage:** Calculate and return a numerical percentage representing the overall match between the resume and the job description based on keyword presence and relevance.
+
+2.  **Missing or Unmatched Keywords:** List the keywords and key phrases explicitly mentioned in the job description that are either absent or not prominently featured (unmatched) in the resume.
+
+3.  **Final Thoughts:** Provide a brief (1-2 sentences) overall assessment of the candidate's suitability based on the keyword analysis.
+
 """
 
-
-
 job_desc = st.sidebar.text_area("Paste the Job Description here:", height=250)
-uploaded_file = st.sidebar.file_uploader("Upload your Resume (PDF only)", type=["pdf"])
+#uploaded_file = st.sidebar.file_uploader("Upload your Resume (PDF only)", type=["pdf"])
+uploaded_files = st.sidebar.file_uploader("Upload Resumes", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
+
+resume_texts = {}
+analysis_results = []
+dynamic_skills = extract_required_skills(job_desc) if job_desc else []
+
+for file in uploaded_files:
+    file_bytes = file.read()
+    text = extract_text(file_bytes, file.type)
+    resume_texts[file.name] = text
+    skills = extract_skills(text,dynamic_skills)
+    word_count = len(text.split())
+    analysis_results.append({
+        "Filename": file.name,
+        "Word Count": word_count,
+        "Detected Skills": ", ".join(skills)
+    })
+    file.seek(0)  # Reset file pointer so it can be used again later
+
 
 tab1, tab2, tab3 = st.tabs(["Individual Analysis", "Dashboard", "Chat"])
 
-if uploaded_file and job_desc:
-    if tab1:
-        #resume_text = extract_resume_chunks(uploaded_file)
-        response=""        
+# Individual analysis
+with tab1:
+    selected_file = st.selectbox("Select a resume for analysis:", list(resume_texts.keys()))
+    if selected_file and job_desc:
+        resume_text = resume_texts[selected_file]
         col1, col2 = st.columns(2)
-        resume_chunks = extract_resume_chunks(uploaded_file)
+        response=""
+
+        resume_chunks = extract_resume_chunks(next(file for file in uploaded_files if file.name == selected_file))
         if not resume_chunks:
-            st.warning("No valid content found in the uploaded PDF.")
+            st.warning("No valid content found in the uploaded file.")
             st.stop()
 
         vectorstore = create_vector_store(resume_chunks)
@@ -107,15 +188,29 @@ if uploaded_file and job_desc:
             if st.button("📝 Analyze Resume"):
                 with st.spinner("Analyzing..."):
                     response = get_gemini_response(prompt_analysis, retrieved_chunks, job_desc)
-                    #response = get_gemini_response(prompt_analysis, resume_text, job_desc)
-                    #st.subheader("🔍 Resume Analysis")                    
+                    
 
         with col2:
             if st.button("📊 Match Percentage"):
                 with st.spinner("Evaluating..."):
                     response = get_gemini_response(prompt_match, retrieved_chunks, job_desc)
-                    #st.subheader("📈 Match Result")                    
-
+                    
         st.write(response)
-else:
-    st.sidebar.info("Please upload a resume and paste a job description to get started.")
+
+    else:
+        st.info("Please select a resume and paste a job description.")
+
+# Dashboard tab
+with tab2:
+    st.subheader("📊 Resume Dashboard")
+    if analysis_results:
+        df = pd.DataFrame(analysis_results)
+        st.dataframe(df, use_container_width=True)
+        st.bar_chart(df.set_index("Filename")["Word Count"])
+    else:
+        st.info("Upload resumes to view dashboard analysis.")
+
+# Chat tab - Placeholder
+with tab3:
+    st.subheader("💬 Chat with Resumes (Coming Soon)")
+    st.info("You will be able to ask questions across all uploaded resumes in a future update.")
