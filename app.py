@@ -5,9 +5,12 @@ from langchain.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
 import google.generativeai as genai
 
+
 # Load environment variable
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
+
 
 # Gemini function
 def get_gemini_response(prompt, resume_text, job_description):
@@ -51,26 +54,29 @@ You are an ATS system. Based on the resume and job description provided:
 st.set_page_config(page_title="RAGcruiter")
 st.title("RAGcruiter 🚀 — Resume Evaluator with Gemini")
 
-job_desc = st.text_area("Paste the Job Description here:", height=250)
-uploaded_file = st.file_uploader("Upload your Resume (PDF only)", type=["pdf"])
+job_desc = st.sidebar.text_area("Paste the Job Description here:", height=250)
+uploaded_file = st.sidebar.file_uploader("Upload your Resume (PDF only)", type=["pdf"])
+
+tab1, tab2, tab3 = st.tabs(["Individual Analysis", "Dashboard", "Chat"])
 
 if uploaded_file and job_desc:
-    resume_text = extract_resume_text(uploaded_file)
-    
-    col1, col2 = st.columns(2)
+    if tab1:
+        resume_text = extract_resume_text(uploaded_file)
+        response=""        
+        col1, col2 = st.columns(2)
 
-    with col1:
-        if st.button("📝 Analyze Resume"):
-            with st.spinner("Analyzing..."):
-                response = get_gemini_response(prompt_analysis, resume_text, job_desc)
-                #st.subheader("🔍 Resume Analysis")
-                st.write(response)
+        with col1:
+            if st.button("📝 Analyze Resume"):
+                with st.spinner("Analyzing..."):
+                    response = get_gemini_response(prompt_analysis, resume_text, job_desc)
+                    #st.subheader("🔍 Resume Analysis")                    
 
-    with col2:
-        if st.button("📊 Match Percentage"):
-            with st.spinner("Evaluating..."):
-                response = get_gemini_response(prompt_match, resume_text, job_desc)
-                #st.subheader("📈 Match Result")
-                st.write(response)
+        with col2:
+            if st.button("📊 Match Percentage"):
+                with st.spinner("Evaluating..."):
+                    response = get_gemini_response(prompt_match, resume_text, job_desc)
+                    #st.subheader("📈 Match Result")                    
+
+        st.write(response)
 else:
-    st.info("Please upload a resume and paste a job description to get started.")
+    st.sidebar.info("Please upload a resume and paste a job description to get started.")

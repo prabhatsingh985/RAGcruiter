@@ -4,3 +4,4 @@ backup/
 .streamlit/
 .env
 notebook/
+__pycache__

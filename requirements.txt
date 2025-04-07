@@ -10,6 +10,10 @@ pandas
 matplotlib
 seaborn
 langchain
-langchain-community 
-ctransformers 
+langchain-community
+ctransformers
 openai
+llama-index
+huggingface_hub
+llama-index-llms-huggingface
+llama-index-embeddings-huggingface
