@@ -74,12 +74,12 @@ GOOGLE_API_KEY=your_gemini_api_key_here
 
 📊 Match Percentage by Candidate
 
-Top matched resumes
-Word count & skill distribution
-Visualizations:
-Donut charts
-Bar graphs
-Data tables
+- Top matched resumes
+- Word count & skill distribution
+- Visualizations:
+ - Donut charts
+ - Bar graphs
+ - Data tables
 
 
 Clearing Cache
@@ -89,9 +89,9 @@ Clearing Cache
 
 Click the 🗑️ Clear Resume Data Cache button in the sidebar to:
 
-Delete saved files
-Clear vector stores
-Reset the database
+- Delete saved files
+- Clear vector stores
+- Reset the database
 
 
 ## Flow Diagram
@@ -150,14 +150,12 @@ Reset the database
 
 
 ## 🔮 Future Roadmap
-✅ Export top-matched resumes as Excel/CSV
 
-✅ Detailed feedback section from Gemini
-
-🔒 Login system for recruiters
-
-💼 Multi-job JD evaluation
-
-☁️ Optional OpenAI fallback
+1. ✅ Export top-matched resumes as Excel/CSV
+2. ✅ Detailed feedback section from Gemini
+3. 🔒 Login system for recruiters
+4. 💼 Multi-job JD evaluation
+5. ☁️ Optional OpenAI fallback
+6. 🧪 Testing + CI pipeline
 
 
