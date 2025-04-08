@@ -5,3 +5,4 @@ backup/
 .env
 notebook/
 __pycache__
+chroma_store/

@@ -15,6 +15,8 @@ import re
 import pandas as pd
 import io
 import warnings
+import shutil
+import uuid
 
 # Streamlit UI
 st.set_page_config(page_title="RAGcruiter")
@@ -66,8 +68,13 @@ def extract_resume_chunks(uploaded_file):
 
 
 def create_vector_store(chunks):
+    unique_dir = f"chroma_store/{uuid.uuid4()}"
     embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = Chroma.from_documents(chunks, embedding=embedding_model, persist_directory="chroma_store")
+    vectorstore = Chroma.from_documents(
+        chunks,
+        embedding=embedding_model,
+        persist_directory=unique_dir
+    )
     vectorstore.persist()
     return vectorstore
 
@@ -118,6 +125,8 @@ def extract_skills(text, dynamic_skills_list):
 prompt_analysis = """
 You are a Technical HR Recruiter. Your task is to analyze the following resume against the provided job description and highlight the key aspects in a crisp and to-the-point manner.
 
+Highlight candidate Name.
+
 Your analysis should be structured into the following four sections:
 
 1.  **Profile Summary:** Provide a concise (1-2 sentences) summary of the candidate's core experience and key skills relevant to the job description.
@@ -133,6 +142,8 @@ Ensure your analysis is concise, apt, and directly related to the information pr
 
 prompt_match = """
 You are an ATS (Applicant Tracking System). Analyze the following resume against the provided job description and provide a structured output.
+
+Highlight candidate Name.
 
 Your output should include the following three sections:
 
