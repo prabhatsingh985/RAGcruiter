@@ -6,3 +6,4 @@ backup/
 notebook/
 __pycache__
 chroma_store/
+temp_files/
