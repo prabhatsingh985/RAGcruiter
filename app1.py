@@ -1,7 +1,6 @@
 # app.py
 import os
 import streamlit as st
-#from langchain.document_loaders import PyPDFLoader
 from dotenv import load_dotenv
 import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -15,8 +14,8 @@ import re
 import pandas as pd
 import io
 import warnings
-import shutil
 import uuid
+import shutil
 
 # Streamlit UI
 st.set_page_config(page_title="RAGcruiter")
@@ -28,35 +27,21 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 warnings.filterwarnings("ignore")
 
+VECTOR_DIR = "chroma_store"
+embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+if not os.path.exists(VECTOR_DIR):
+    os.makedirs(VECTOR_DIR)
+
 #Extract Resume Text & Split into Chunks
-def extract_resume_chunks(uploaded_file):
-    if uploaded_file is None or uploaded_file.size == 0:
-        st.warning("Uploaded file is empty or not valid.")
-        return []
-
-    # Read file content into memory once
-    file_bytes = uploaded_file.read()
-    if not file_bytes:
-        st.warning("Uploaded file content is empty.")
-        return []
-
+def extract_resume_chunks(file):
     file_path = "temp_resume.pdf"
     with open(file_path, "wb") as f:
-        f.write(file_bytes)
+        f.write(file.read())
 
-    try:
-        loader = PyPDFLoader(file_path)
-        documents = loader.load()
-    except Exception as e:
-        st.error(f"Error reading PDF: {e}")
-        os.remove(file_path)
-        return []
-
+    loader = PyPDFLoader(file_path)
+    documents = loader.load()
     os.remove(file_path)
-
-    if not documents:
-        st.warning("No valid content found in the uploaded file.")
-        return []
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
@@ -66,16 +51,20 @@ def extract_resume_chunks(uploaded_file):
     chunks = text_splitter.split_documents(documents)
     return chunks
 
-
-def create_vector_store(chunks):
-    unique_dir = f"chroma_store/{uuid.uuid4()}"
-    embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = Chroma.from_documents(
-        chunks,
-        embedding=embedding_model,
-        persist_directory=unique_dir
-    )
-    vectorstore.persist()
+def create_or_load_vector_store(filename, chunks):
+    store_path = os.path.join(VECTOR_DIR, filename.replace(".", "_"))
+    if not os.path.exists(store_path):
+        vectorstore = Chroma.from_documents(
+            chunks,
+            embedding=embedding_model,
+            persist_directory=store_path
+        )
+        vectorstore.persist()
+    else:
+        vectorstore = Chroma(
+            persist_directory=store_path,
+            embedding_function=embedding_model
+        )
     return vectorstore
 
 def retrieve_matching_chunks(job_description, vectorstore, k=3):
@@ -107,19 +96,13 @@ def extract_text(file_bytes, file_type):
 
 def extract_required_skills(job_description):
     model = genai.GenerativeModel("gemini-1.5-flash")
-    prompt = f"""Extract a list of key skills required for the following job description. Just list them as a comma-separated string.
-
-    Job Description:
-    {job_description}
-    """
+    prompt = f"""Extract a list of key skills required for the following job description. Just list them as a comma-separated string.\n\nJob Description:\n{job_description}"""
     response = model.generate_content(prompt)
     return [skill.strip() for skill in response.text.split(",")]
 
 def extract_skills(text, dynamic_skills_list):
     found = [skill for skill in dynamic_skills_list if re.search(rf'\\b{re.escape(skill)}\\b', text, re.IGNORECASE)]
     return list(set(found))
-
-
 
 # Prompts
 prompt_analysis = """
@@ -152,30 +135,30 @@ Your output should include the following three sections:
 2.  **Missing or Unmatched Keywords:** List the keywords and key phrases explicitly mentioned in the job description that are either absent or not prominently featured (unmatched) in the resume.
 
 3.  **Final Thoughts:** Provide a brief (1-2 sentences) overall assessment of the candidate's suitability based on the keyword analysis.
-
 """
 
 job_desc = st.sidebar.text_area("Paste the Job Description here:", height=250)
-#uploaded_file = st.sidebar.file_uploader("Upload your Resume (PDF only)", type=["pdf"])
 uploaded_files = st.sidebar.file_uploader("Upload Resumes", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
 resume_texts = {}
 analysis_results = []
 dynamic_skills = extract_required_skills(job_desc) if job_desc else []
 
+# Prepare data for dashboard and reuse vector store
+uploaded_file_map = {}
 for file in uploaded_files:
     file_bytes = file.read()
+    uploaded_file_map[file.name] = file  # store file object for later
     text = extract_text(file_bytes, file.type)
     resume_texts[file.name] = text
-    skills = extract_skills(text,dynamic_skills)
+    skills = extract_skills(text, dynamic_skills)
     word_count = len(text.split())
     analysis_results.append({
         "Filename": file.name,
         "Word Count": word_count,
         "Detected Skills": ", ".join(skills)
     })
-    file.seek(0)  # Reset file pointer so it can be used again later
-
+    file.seek(0)
 
 tab1, tab2, tab3 = st.tabs(["Individual Analysis", "Dashboard", "Chat"])
 
@@ -185,27 +168,22 @@ with tab1:
     if selected_file and job_desc:
         resume_text = resume_texts[selected_file]
         col1, col2 = st.columns(2)
-        response=""
+        response = ""
 
-        resume_chunks = extract_resume_chunks(next(file for file in uploaded_files if file.name == selected_file))
-        if not resume_chunks:
-            st.warning("No valid content found in the uploaded file.")
-            st.stop()
-
-        vectorstore = create_vector_store(resume_chunks)
+        chunks = extract_resume_chunks(uploaded_file_map[selected_file])
+        vectorstore = create_or_load_vector_store(selected_file, chunks)
         retrieved_chunks = retrieve_matching_chunks(job_desc, vectorstore)
 
         with col1:
             if st.button("📝 Analyze Resume"):
                 with st.spinner("Analyzing..."):
                     response = get_gemini_response(prompt_analysis, retrieved_chunks, job_desc)
-                    
 
         with col2:
             if st.button("📊 Match Percentage"):
                 with st.spinner("Evaluating..."):
                     response = get_gemini_response(prompt_match, retrieved_chunks, job_desc)
-                    
+
         st.write(response)
 
     else:
