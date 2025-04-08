@@ -16,7 +16,9 @@ import io
 import warnings
 import uuid
 import shutil
-
+from google.api_core.exceptions import ResourceExhausted
+import time
+from dashboard import render_dashboard
 # Streamlit UI
 st.set_page_config(page_title="RAGcruiter")
 st.title("RAGcruiter 🚀 — Resume Evaluator with Gemini")
@@ -32,6 +34,13 @@ embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 if not os.path.exists(VECTOR_DIR):
     os.makedirs(VECTOR_DIR)
+
+if "match_percentages" not in st.session_state:
+    st.session_state.match_percentages = {}
+
+if "analysis_results" in st.session_state:
+    del st.session_state["analysis_results"]
+st.session_state["analysis_results"] = []
 
 #Extract Resume Text & Split into Chunks
 def extract_resume_chunks(file):
@@ -50,6 +59,7 @@ def extract_resume_chunks(file):
     )
     chunks = text_splitter.split_documents(documents)
     return chunks
+
 
 def create_or_load_vector_store(filename, chunks):
     store_path = os.path.join(VECTOR_DIR, filename.replace(".", "_"))
@@ -85,6 +95,7 @@ def get_gemini_response(prompt, retrieved_chunks, job_description):
 def extract_text(file_bytes, file_type):
     if file_type == "application/pdf":
         with pymupdf.open(stream=io.BytesIO(file_bytes), filetype="pdf") as doc:
+            #print("\n".join([page.get_text() for page in doc]))
             return "\n".join([page.get_text() for page in doc])
     elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         temp_file = io.BytesIO(file_bytes)
@@ -102,7 +113,25 @@ def extract_required_skills(job_description):
 
 def extract_skills(text, dynamic_skills_list):
     found = [skill for skill in dynamic_skills_list if re.search(rf'\\b{re.escape(skill)}\\b', text, re.IGNORECASE)]
+    #print(list(set(found)))
     return list(set(found))
+
+def count_matching_skills(resume_text, dynamic_skills_list):
+    matched_skills = set()
+    resume_lower = resume_text.lower()
+    for skill in dynamic_skills_list:
+        skill_lower = skill.lower()
+        pattern = re.escape(skill_lower)
+        if re.search(pattern, resume_lower):
+            matched_skills.add(skill)
+    #print(len(matched_skills), list(matched_skills))
+    return len(matched_skills), list(matched_skills)
+    
+def get_candidate_names(resume_text):
+    prompt_names=f"""Get the candidate name from this resume text. Just the candidate name.  Dont print any other words"""
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content([prompt_names, resume_text])  
+    return response.text.strip()
 
 # Prompts
 prompt_analysis = """
@@ -137,6 +166,8 @@ Your output should include the following three sections:
 3.  **Final Thoughts:** Provide a brief (1-2 sentences) overall assessment of the candidate's suitability based on the keyword analysis.
 """
 
+promp_match_percentage="""Get the match percentage with the job description from this resume text. Just the match percentage digit. No need to include %.  Dont print any other words"""
+
 job_desc = st.sidebar.text_area("Paste the Job Description here:", height=250)
 uploaded_files = st.sidebar.file_uploader("Upload Resumes", type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
@@ -151,14 +182,26 @@ for file in uploaded_files:
     uploaded_file_map[file.name] = file  # store file object for later
     text = extract_text(file_bytes, file.type)
     resume_texts[file.name] = text
-    skills = extract_skills(text, dynamic_skills)
+    match_count, matching_skills = count_matching_skills(text, dynamic_skills)
+    candidate_name_match=get_candidate_names(text)
     word_count = len(text.split())
+    # Reuse match percent if available in session, else None
+    match_percent = st.session_state.match_percentages.get(file.name, None)
+    time.sleep(1.5)
+    
     analysis_results.append({
-        "Filename": file.name,
+        "Filename": file.name,        
+        "Candidate Name": candidate_name_match.upper(),  
+        "Job Match Percentage": match_percent,      
         "Word Count": word_count,
-        "Detected Skills": ", ".join(skills)
+        "Detected Skills": matching_skills,
+        "Skill Match Count": match_count
     })
+    #print(analysis_results)
     file.seek(0)
+
+#print(analysis_results)
+#print(st.session_state["analysis_results"])
 
 tab1, tab2 = st.tabs(["Individual Analysis", "Dashboard"])
 
@@ -188,6 +231,17 @@ with tab1:
                 st.session_state.show_question_input = False
                 with st.spinner("Evaluating..."):
                     response = get_gemini_response(prompt_match, retrieved_chunks, job_desc)
+                    match_percent = re.search(r'\d{1,3}%', response)
+                    match_percent = match_percent.group(0) if match_percent else "0%"
+
+                    # ✅ Update session
+                    st.session_state.match_percentages[selected_file] = match_percent
+
+                    # ✅ Update the corresponding row in analysis_results
+                    for row in analysis_results:
+                        if row["Filename"] == selected_file:
+                            row["Job Match Percentage"] = match_percent
+                            break
         
         # Q&A
         with col3:
@@ -222,13 +276,17 @@ with tab1:
 # Dashboard tab
 with tab2:
     st.subheader("📊 Resume Dashboard")
+
     if analysis_results:
         df = pd.DataFrame(analysis_results)
-        st.dataframe(df, use_container_width=True)
-        st.bar_chart(df.set_index("Filename")["Word Count"])
+
+        # Convert % to integer for sorting if not None
+        df["Parsed Match %"] = df["Job Match Percentage"].apply(lambda x: int(re.search(r'\d+', x).group(0)) if isinstance(x, str) and re.search(r'\d+', x) else 0)
+
+        df_sorted = df.sort_values(by="Parsed Match %", ascending=False).drop(columns=["Parsed Match %"])
+        #st.dataframe(df_sorted[['Filename', "Candidate Name", "Job Match Percentage", 'Word Count', 'Skill Match Count']], use_container_width=True)
+        render_dashboard(df)
     else:
         st.info("Upload resumes to view dashboard analysis.")
-
-
 
     

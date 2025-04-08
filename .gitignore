@@ -6,4 +6,3 @@ backup/
 notebook/
 __pycache__
 chroma_store/
-dashboard.py
