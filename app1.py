@@ -167,12 +167,15 @@ with tab1:
     selected_file = st.selectbox("Select a resume for analysis:", list(resume_texts.keys()))
     if selected_file and job_desc:
         resume_text = resume_texts[selected_file]
-        col1, col2 = st.columns(2)
+        col1, col2,col3 = st.columns(3)
         response = ""
 
         chunks = extract_resume_chunks(uploaded_file_map[selected_file])
         vectorstore = create_or_load_vector_store(selected_file, chunks)
         retrieved_chunks = retrieve_matching_chunks(job_desc, vectorstore)
+
+        # Flags for conditional input
+        show_question_input = st.session_state.get("show_question_input", False)
 
         with col1:
             if st.button("📝 Analyze Resume"):
@@ -183,6 +186,31 @@ with tab1:
             if st.button("📊 Match Percentage"):
                 with st.spinner("Evaluating..."):
                     response = get_gemini_response(prompt_match, retrieved_chunks, job_desc)
+        
+        # Q&A
+        with col3:
+            if st.button("🤔 Ask a Question"):
+                st.session_state.show_question_input = True  # Toggle flag to show input
+
+        # Show input box below columns if toggled
+        if st.session_state.get("show_question_input", False):
+            user_query = st.text_input("Enter your question about this resume:")
+            if st.button("Submit Question"):
+                if user_query:
+                    with st.spinner("Getting answer..."):
+                        qa_prompt = f"""
+                        You are "ResumeBot," an intelligent assistant for an ATS system. You have been provided with structured data extracted from a candidate's resume. 
+                        Your goal is to answer user questions about this candidate accurately and efficiently.
+
+                        **User Question:** "{user_query}"
+
+                        Respond to the user's question based on the provided data. Be direct and informative. 
+                        If the question is ambiguous, ask for clarification. 
+                        If the information is not available, state "The resume does not contain information about that." or a similar polite refusal.
+                        """
+                        response = get_gemini_response(qa_prompt, retrieved_chunks, job_desc)
+                else:
+                    st.warning("Please enter a question.")
 
         st.write(response)
 
@@ -200,6 +228,21 @@ with tab2:
         st.info("Upload resumes to view dashboard analysis.")
 
 # Chat tab - Placeholder
+
+
+# Helper: Check if a file is already indexed
+def resume_exists_in_chroma(file_name: str, persist_path: str):
+    # You could use filename or file hash as the unique identifier
+    existing_dirs = os.listdir(persist_path) if os.path.exists(persist_path) else []
+    return any(file_name in fname for fname in existing_dirs)
+
+# Helper: Generate a unique directory for a file
+def get_resume_vector_dir(file_name: str):
+    safe_name = file_name.replace(" ", "_").replace(".", "_")
+    return os.path.join(VECTOR_DIR, f"resume_{safe_name}")
+
+# In your Streamlit tab
 with tab3:
-    st.subheader("💬 Chat with Resumes (Coming Soon)")
-    st.info("You will be able to ask questions across all uploaded resumes in a future update.")
+    st.subheader("💬 Chat with All Resumes")    
+
+    
