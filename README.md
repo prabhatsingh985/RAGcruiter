@@ -67,6 +67,7 @@ GOOGLE_API_KEY=your_gemini_api_key_here
    pip install -r requirements.txt
 3. **Run the app**
    streamlit run app.py
+   ```
 
 ## Sample Dashboard
 =====================
