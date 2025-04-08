@@ -160,7 +160,7 @@ for file in uploaded_files:
     })
     file.seek(0)
 
-tab1, tab2, tab3 = st.tabs(["Individual Analysis", "Dashboard", "Chat"])
+tab1, tab2 = st.tabs(["Individual Analysis", "Dashboard"])
 
 # Individual analysis
 with tab1:
@@ -179,11 +179,13 @@ with tab1:
 
         with col1:
             if st.button("📝 Analyze Resume"):
+                st.session_state.show_question_input = False
                 with st.spinner("Analyzing..."):
                     response = get_gemini_response(prompt_analysis, retrieved_chunks, job_desc)
 
         with col2:
             if st.button("📊 Match Percentage"):
+                st.session_state.show_question_input = False
                 with st.spinner("Evaluating..."):
                     response = get_gemini_response(prompt_match, retrieved_chunks, job_desc)
         
@@ -227,22 +229,6 @@ with tab2:
     else:
         st.info("Upload resumes to view dashboard analysis.")
 
-# Chat tab - Placeholder
 
-
-# Helper: Check if a file is already indexed
-def resume_exists_in_chroma(file_name: str, persist_path: str):
-    # You could use filename or file hash as the unique identifier
-    existing_dirs = os.listdir(persist_path) if os.path.exists(persist_path) else []
-    return any(file_name in fname for fname in existing_dirs)
-
-# Helper: Generate a unique directory for a file
-def get_resume_vector_dir(file_name: str):
-    safe_name = file_name.replace(" ", "_").replace(".", "_")
-    return os.path.join(VECTOR_DIR, f"resume_{safe_name}")
-
-# In your Streamlit tab
-with tab3:
-    st.subheader("💬 Chat with All Resumes")    
 
     
