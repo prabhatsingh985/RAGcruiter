@@ -34,7 +34,9 @@ warnings.filterwarnings("ignore")
 VECTOR_DIR = "chroma_store3"
 UPLOAD_DIR = "temp_files2"
 DB_PATH = "resume_data2.db"
-embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+embedding_model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 
 os.makedirs(VECTOR_DIR, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
