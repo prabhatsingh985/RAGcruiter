@@ -7,3 +7,6 @@ notebook/
 __pycache__
 chroma_store/
 temp_files/
+chroma_store2/
+temp_files1/
+resume_data1.db
