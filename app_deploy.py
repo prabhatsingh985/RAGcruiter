@@ -32,9 +32,9 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 warnings.filterwarnings("ignore")
 
-VECTOR_DIR = "chroma_store2"
-UPLOAD_DIR = "temp_files1"
-DB_PATH = "resume_data1.db"
+VECTOR_DIR = "chroma_store3"
+UPLOAD_DIR = "temp_files2"
+DB_PATH = "resume_data2.db"
 embedding_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 os.makedirs(VECTOR_DIR, exist_ok=True)
@@ -379,7 +379,7 @@ if st.sidebar.button("Submit JD and Resume"):
                 "F1 Score": skill_eval["f1_score"]
             }
             eval_df = pd.DataFrame([eval_row])
-            eval_file = "evaluation_results.csv"
+            eval_file = "evaluation_results1.csv"
             if os.path.exists(eval_file):
                 eval_df.to_csv(eval_file, mode="a", index=False, header=False)
             else:
