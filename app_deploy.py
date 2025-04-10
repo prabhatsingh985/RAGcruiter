@@ -22,18 +22,24 @@ from google.api_core.exceptions import ResourceExhausted
 import time
 from datetime import datetime 
 from dashboard import render_dashboard
+from huggingface_hub import login
 
 
 st.set_page_config(page_title="RAGcruiter")
 st.title("RAGcruiter 🚀 - Level Up Your Recruiting Game")
 
+login(token=st.secrets["HUGGINGFACE"]["HUGGINGFACE_HUB_TOKEN"])
+
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 warnings.filterwarnings("ignore")
 
+
+
 VECTOR_DIR = "chroma_store3"
 UPLOAD_DIR = "temp_files2"
 DB_PATH = "resume_data2.db"
+
 embedding_model = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
