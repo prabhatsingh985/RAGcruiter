@@ -1,7 +1,7 @@
 streamlit
 langchain
 langchain-community
-faiss-cpu
+chromadb
 sentence-transformers
 google-generativeai
 google-api-core

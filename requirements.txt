@@ -1,7 +1,7 @@
 streamlit
 langchain
 langchain-community
-chromadb
+faiss-cpu
 sentence-transformers
 google-generativeai
 google-api-core
@@ -18,4 +18,5 @@ transformers
 llama-index
 llama-index-llms-huggingface
 llama-index-embeddings-huggingface
+evaluate
 

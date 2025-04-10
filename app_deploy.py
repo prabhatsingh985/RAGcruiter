@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 import pymupdf  # PyMuPDF
 import docx2txt
@@ -22,7 +22,6 @@ from google.api_core.exceptions import ResourceExhausted
 import time
 from datetime import datetime 
 from dashboard import render_dashboard
-import chromadb
 from evaluation import compute_bleu_score, embedding_similarity, evaluate_skills
 
 st.set_page_config(page_title="RAGcruiter")
