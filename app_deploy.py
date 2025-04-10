@@ -350,10 +350,7 @@ if st.sidebar.button("Submit JD and Resume"):
             file.name, name, match_percent, word_count, ", ".join(skill_list), match_response))
                 conn.commit()
                 time.sleep(5.2)
-            # Use JD itself as weak reference (or replace with ground truth if available)
-            bleu = compute_bleu_score(match_response, job_desc)
-            cos_sim = embedding_similarity(match_response, job_desc)
-            skill_eval = evaluate_skills(skill_list, dynamic_skills)
+            
             st.session_state.analysis_results.append({
                 "Filename": file.name,
                 "Candidate Name": name.upper(),
@@ -365,24 +362,7 @@ if st.sidebar.button("Submit JD and Resume"):
                 "Experience":experience,
                 "Interests":interests
             })
-            # Save to CSV
-            eval_row = {
-                "Timestamp": datetime.now().strftime(f'''%Y-%m-%d %H:%M:%S'''),
-                "Filename": file.name,
-                "Candidate Name": name,
-                "Match %": match_percent,
-                "BLEU": round(bleu, 3),
-                "Cosine Similarity": round(cos_sim, 3),
-                "Precision": skill_eval["precision"],
-                "Recall": skill_eval["recall"],
-                "F1 Score": skill_eval["f1_score"]
-            }
-            eval_df = pd.DataFrame([eval_row])
-            eval_file = "evaluation_results1.csv"
-            if os.path.exists(eval_file):
-                eval_df.to_csv(eval_file, mode="a", index=False, header=False)
-            else:
-                eval_df.to_csv(eval_file, index=False)
+            
     #print("After submitting button start and before calling display tab:- ", job_desc[:20] , st.session_state.analysis_results )
     progress_bar=""
     if st.session_state.submitted and st.session_state.analysis_results:
