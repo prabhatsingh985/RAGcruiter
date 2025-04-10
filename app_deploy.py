@@ -22,7 +22,7 @@ from google.api_core.exceptions import ResourceExhausted
 import time
 from datetime import datetime 
 from dashboard import render_dashboard
-from evaluation import compute_bleu_score, embedding_similarity, evaluate_skills
+
 
 st.set_page_config(page_title="RAGcruiter")
 st.title("RAGcruiter 🚀 - Level Up Your Recruiting Game")
@@ -68,15 +68,15 @@ def clear_resume_cache(flag=1):
     c.execute("DELETE FROM resumes")
     conn.commit()
     # Properly close Chroma DB before deleting
-    if os.path.exists(VECTOR_DIR) and os.listdir(VECTOR_DIR):
-        try:
-            chroma_client = chromadb.PersistentClient(path=VECTOR_DIR)
-            chroma_client.reset()
-        except Exception as e:
-            if not flag:
-                st.warning(f"Warning while releasing ChromaDB lock: {e}")
+    #if os.path.exists(VECTOR_DIR) and os.listdir(VECTOR_DIR):
+        #try:
+            #chroma_client = chromadb.PersistentClient(path=VECTOR_DIR)
+            #chroma_client.reset()
+        #except Exception as e:
+            #if not flag:
+                #st.warning(f"Warning while releasing ChromaDB lock: {e}")
     # Now safely remove directories
-        shutil.rmtree(VECTOR_DIR, ignore_errors=True)
+    shutil.rmtree(VECTOR_DIR, ignore_errors=True)
     shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
     os.makedirs(VECTOR_DIR, exist_ok=True)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
