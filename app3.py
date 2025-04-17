@@ -402,15 +402,6 @@ else:
 # Clear DB button
 with st.sidebar:
 
-    if st.button("Reset JD and Resumes"):
-        st.session_state.submitted = False
-        st.session_state.resume_texts = {}
-        st.session_state.analysis_results = []
-        st.session_state["job_desc"] = ""
-        st.session_state["uploaded_files"] = None
-        st.rerun()
-
-
     if st.button("Clear Resume Data Cache"):
         clear_resume_cache(flag=0)
 

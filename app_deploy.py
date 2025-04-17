@@ -27,6 +27,7 @@ from huggingface_hub import login
 
 st.set_page_config(page_title="RAGcruiter")
 st.title("RAGcruiter 🚀 - Level Up Your Recruiting Game")
+st.caption("AI-powered Resume Screening & Matching Tool built using RAG architecture.")
 
 login(token=st.secrets["HUGGINGFACE"]["HUGGINGFACE_HUB_TOKEN"])
 
@@ -36,9 +37,9 @@ warnings.filterwarnings("ignore")
 
 
 
-VECTOR_DIR = "chroma_store3"
-UPLOAD_DIR = "temp_files2"
-DB_PATH = "resume_data2.db"
+VECTOR_DIR = "chroma_store"
+UPLOAD_DIR = "temp_files"
+DB_PATH = "resume_data.db"
 
 embedding_model = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -93,14 +94,13 @@ def clear_resume_cache(flag=1):
     st.session_state.uploaded_files = []
     st.session_state.resume_texts = {}
     st.session_state.analysis_results = []
+    st.session_state.job_desc = ""
 
     if not flag:
         st.success("All cached resume data cleared.")
 
     st.rerun()
-
-
-        
+      
 
 # Utility Functions
 
@@ -383,21 +383,9 @@ else:
     st.info("Please select resume and paste a job description.")
 
 
-
-
 # Clear DB button
 with st.sidebar:
-
-    if st.button("Reset JD and Resumes"):
-        st.session_state.submitted = False
-        st.session_state.resume_texts = {}
-        st.session_state.analysis_results = []
-        st.session_state["job_desc"] = ""
-        st.session_state["uploaded_files"] = None
-        st.rerun()
-
-
-    if st.button("Clear Resume Data Cache"):
+    if st.button("Reset"):
         clear_resume_cache(flag=0)
 
     
