@@ -42,7 +42,8 @@ UPLOAD_DIR = "temp_files"
 DB_PATH = "resume_data.db"
 
 embedding_model = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model_name="sentence-transformers/all-MiniLM-L6-v2",
+    model_kwargs={"device": "cpu"}
 )
 
 os.makedirs(VECTOR_DIR, exist_ok=True)
@@ -69,7 +70,8 @@ c.execute('''CREATE TABLE IF NOT EXISTS resumes (
     match_percent TEXT,
     word_count INTEGER,
     skills TEXT,
-    match_explanation TEXT
+    match_explanation TEXT,
+    tools TEXT
 )''')
 conn.commit()
 
@@ -336,7 +338,7 @@ if st.sidebar.button("Submit JD and Resume"):
             c.execute("SELECT * FROM resumes WHERE filename = ?", (file.name,))
             result = c.fetchone()
             if result:
-                name, match_percent,match_response = result[1], result[2],result[5]
+                name, match_percent,match_response,tools = result[1], result[2],result[5],result[6]
             else:
                 info = get_candidate_names(text)[10:-3]
                 print(info,type(info))
@@ -354,8 +356,8 @@ if st.sidebar.button("Submit JD and Resume"):
                 time.sleep(5.2)
                 match_percent = re.search(r'\d{1,3}%', match_response)
                 match_percent = match_percent.group(0) if match_percent else "0%"
-                c.execute("INSERT INTO resumes VALUES (?, ?, ?, ?, ?, ?)", (
-            file.name, name, match_percent, word_count, ", ".join(skill_list), match_response))
+                c.execute("INSERT INTO resumes VALUES (?, ?, ?, ?, ?, ?,?)", (
+            file.name, name, match_percent, word_count, ", ".join(skill_list), match_response,tools))
                 conn.commit()
                 time.sleep(5.2)
             
